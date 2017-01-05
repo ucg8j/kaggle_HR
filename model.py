@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import os
@@ -14,6 +15,9 @@ df = pd.read_csv('HR_comma_sep.csv')
 col_names = df.columns.tolist()
 df.shape # (14999, 10)
 df.describe
+
+# expand possible variables
+df['productivity'] = df.average_montly_hours / df.number_projectdf
 
 # some basic qtys
 print '# people left = {}'.format(len(df[df['left'] == 1]))
@@ -37,11 +41,24 @@ df_sampl = df.sample(frac=0.05)
 pplot = sns.pairplot(df_sampl, hue="left")
 pplot_v2 = sns.pairplot(df_sampl, diag_kind="kde")
 
+# TODO check for outliers
 
-#### feature eng / expand possible variables
-df['productivity'] = df.average_montly_hours / df.number_projectdf
+#### split data into train, test and validate
+# 60% - train set, 20% - validation set, 20% - test set
+train, validate, test = np.split(df.sample(frac=1), [int(.6*len(df)), int(.8*len(df))])
+
+#### TODO alternative split, Cross Validate
 
 
-#### predict
+#### model 
+# two class forest
+
+# two class jungle
+# two class logistic regression
+# two class neural net
+# two class decision tree
+# two class bayes
+
+#### evaluate
 
 
