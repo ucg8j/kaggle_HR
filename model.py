@@ -3,9 +3,13 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-import statsmodels.api as sm
+# import statsmodels.api as sm # logistic but... use 
 from random import sample
+from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.cross_validation import cross_val_score
+from sklearn import metrics
+
 
 #### set working dir and read data
 path = os.path.expanduser('~/Projects/kaggle_HR/')
@@ -18,7 +22,7 @@ col_names = df.columns.tolist()
 df.shape # (14999, 10)
 df.describe
 
-# one hot encode string/'object' variables 
+# one hot encode string/'object' variables
 df.dtypes # 'salary' and 'sales'
 df['salary'] = '$_' + df['salary'].astype(str)
 df['sales'] = 'sales_' + df['sales'].astype(str)
@@ -34,8 +38,8 @@ df = df.join(one_hot_sales)
 # drop unnecessay columns
 df = df.drop(['salary', 'sales', '$_low', 'sales_IT'], axis=1)
 
-# ALTERNATIVE
-# n.b. python has no native way of handling factors like R and sklearn's rf classifier doesn't 
+# TODO - dummy ALTERNATIVE
+# n.b. python has no native way of handling factors like R and sklearn's rf classifier doesn't
 # handle categorical vars. Therefore need to one hot encode OR convert to numeric representations.
 #Auto encodes any dataframe column of type category or object.
 # from sklearn.preprocessing import LabelEncoder
@@ -48,7 +52,7 @@ df = df.drop(['salary', 'sales', '$_low', 'sales_IT'], axis=1)
 #             except:
 #                 print('Error encoding '+feature)
 #         return df
-        
+
 # df_test = dummyEncode(df)
 
 # expand possible variables
@@ -68,7 +72,7 @@ df.apply(lambda x: sum(x.isnull()), axis=0)
 
 # correlation heatmap
 correlation = df.corr()
-plt.figure(figsize = (10,10))
+plt.figure(figsize=(10, 10))
 sns.heatmap(correlation, vmax=1, square=True, annot=True, cmap='cubehelix')
 
 # pairwise plots
@@ -100,10 +104,10 @@ importances = rf.feature_importances_
 std = np.std([rf.feature_importances_ for tree in rf.estimators_], axis=0)
 indices = np.argsort(importances)[::-1]
 # [(0.245, 'satisfaction_level'), (0.1728, 'number_project'), (0.1655, 'time_spend_company'),
-# (0.1369, 'average_montly_hours'), (0.1244, 'productivity'), (0.1139, 'last_evaluation'), 
-# (0.0111, 'Work_accident'), (0.0063, '$_high'), (0.0043, '$_medium'), (0.0037, 'sales_sales'), 
-# (0.0035, 'sales_technical'), (0.0031, 'sales_support'), (0.0019, 'sales_management'), 
-# (0.0018, 'sales_hr'), (0.0016, 'sales_RandD'), (0.0015, 'sales_marketing'), 
+# (0.1369, 'average_montly_hours'), (0.1244, 'productivity'), (0.1139, 'last_evaluation'),
+# (0.0111, 'Work_accident'), (0.0063, '$_high'), (0.0043, '$_medium'), (0.0037, 'sales_sales'),
+# (0.0035, 'sales_technical'), (0.0031, 'sales_support'), (0.0019, 'sales_management'),
+# (0.0018, 'sales_hr'), (0.0016, 'sales_RandD'), (0.0015, 'sales_marketing'),
 # (0.0012, 'sales_accounting'), (0.0008, 'promotion_last_5years'), (0.0007, 'sales_product_mng')]
 
 # plot variable importance
@@ -114,33 +118,79 @@ plt.bar(range(x_train.shape[1]), importances[indices], color="r", yerr=std[indic
 # create variable lists
 all_vars = df.columns.tolist()
 top_6_vars = ['satisfaction_level', 'number_project', 'time_spend_company', 
-             'average_montly_hours', 'productivity', 'last_evaluation']
+              'average_montly_hours', 'productivity', 'last_evaluation']
 top_5_vars = ['satisfaction_level', 'number_project', 'time_spend_company', 
-             'average_montly_hours', 'last_evaluation']
+              'average_montly_hours', 'last_evaluation']
 
 #### TODO alternative split, Cross Validate
 
 
-#### model 
+#### model
 # logistic regression
-logit_all_vars = sm.Logit(y_train, x_train)
-result = logit_all_vars.fit()
-print result.summary()
-print np.exp(result.params)
+logit_model = LogisticRegression()                # instantiate
+logit_model = logit_model.fit(x_train, y_train)   # fit
+logit_model.score(x_train, y_train)               # Accuracy 80%
 
-# make predictions on the enumerated dataset
-y_test_l = result.predict(x_test)
-print("Test accuracy: ", sum(pd.DataFrame(y_test_l).idxmax(axis=1).values == y_test) / float(len(y_test)))
-# ('Test accuracy: ', 0.76066666666666671)
+# what % of the test set leave?
+y_test.mean()
+# 0.23933333333333334 
+# you could obtain 76% accuracy by always predicting 'left = N' (i.e. remain in org). 
+# In that sense we are doing that well!
 
-y_val_l = result.predict(x_validate)
-print("Validation accuracy: ", sum(pd.DataFrame(y_val_l).idxmax(axis=1).values == y_validate) / float(len(y_validate)))
-# ('Validation accuracy: ', 0.75466666666666671)
+# examine the coefficients
+pd.DataFrame(zip(X.columns, np.transpose(model.coef_)))
+#    satisfaction_level     [-3.93663051447] lower satisfaction associated with leaving
+#       last_evaluation     [0.689767457149] higher performance associated with leaving
+#        number_project     [0.110208280701] more projects (performance related) associated with leaving
+#  average_montly_hours  [-0.00408269509067]
+#    time_spend_company     [0.263577652969]
+#         Work_accident     [-1.56599235287]
+# promotion_last_5years     [-1.24075021228]
+#                $_high     [-1.89336653791]
+#              $_medium    [-0.523404690533]
+#           sales_RandD    [-0.497071456721]
+#      sales_accounting    [0.0938805031077]
+#              sales_hr     [0.331180487373]
+#      sales_management    [-0.510669271677]
+#       sales_marketing    [0.0420679846999]
+#     sales_product_mng    [0.0389480539297]
+#           sales_sales    [0.0978587842515]
+#         sales_support      [0.15181336107]
+#       sales_technical     [0.187623110255]
+#          productivity    [0.0276848033542]
+
+# predictions on the test dataset
+predicted = pd.DataFrame(logit_model.predict(x_test))
+print predicted.head(n=15)
+
+# probabilities on the test dataset
+probs = pd.DataFrame(logit_model.predict_proba(x_test))
+print probs.head(n=15)
+# if the probability of an employee is >50% then prediction will be =1
+
+print metrics.accuracy_score(y_test, predicted)     # 0.803
+print metrics.roc_auc_score(y_test, probs[1])       # 0.822072462459
+print metrics.confusion_matrix(y_test, predicted) 
+# [[2123  159]
+#  [ 432  286]]
+print metrics.classification_report(y_test, predicted)
+#              precision    recall  f1-score   support
+#           0       0.83      0.93      0.88      2282
+#           1       0.64      0.40      0.49       718
+# avg / total       0.79      0.80      0.79      3000
+
+# evaluate the model using 10-fold cross-validation
+scores = cross_val_score(LogisticRegression(), x_test, y_test, scoring='accuracy', cv=10)
+print scores.mean()
 
 # two class forest
 rf.fit(x_train, y_train)
 col_names = x_test.columns.tolist()
-test['left_predict_rf'] = rf.predict_proba(test[col_names])
+y_test_rf = rf.predict_proba(x_test)
+print "Test accuracy: ", sum(pd.DataFrame(y_test_rf).idxmax(axis=1).values == y_test) / float(len(y_test))
+
+y_val_rf = rf.predict_proba(x_validate)
+print "Test accuracy: ", sum(pd.DataFrame(y_val_rf).idxmax(axis=1).values == y_validate) / float(len(y_validate))
 
 
 # two class jungle
@@ -150,5 +200,3 @@ test['left_predict_rf'] = rf.predict_proba(test[col_names])
 # two class bayes
 
 #### evaluate
-
-
