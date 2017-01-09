@@ -9,6 +9,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.cross_validation import cross_val_score
 from sklearn import metrics
+from sklearn.svm import SVC
 
 
 #### set working dir and read data
@@ -55,6 +56,7 @@ df = df.drop(['salary', 'sales', '$_low', 'sales_IT'], axis=1)
 
 # df_test = dummyEncode(df)
 
+# TODO interaction terms
 # expand possible variables
 df['productivity'] = df.average_montly_hours / df.number_project
 
@@ -122,11 +124,9 @@ top_6_vars = ['satisfaction_level', 'number_project', 'time_spend_company',
 top_5_vars = ['satisfaction_level', 'number_project', 'time_spend_company', 
               'average_montly_hours', 'last_evaluation']
 
-#### TODO alternative split, Cross Validate
-
 
 #### model
-# logistic regression
+# LOGISTIC REGRESSION
 logit_model = LogisticRegression()                # instantiate
 logit_model = logit_model.fit(x_train, y_train)   # fit
 logit_model.score(x_train, y_train)               # Accuracy 80%
@@ -183,20 +183,60 @@ print metrics.classification_report(y_test, predicted)
 scores = cross_val_score(LogisticRegression(), x_test, y_test, scoring='accuracy', cv=10)
 print scores.mean()
 
-# two class forest
-rf.fit(x_train, y_train)
-col_names = x_test.columns.tolist()
-y_test_rf = rf.predict_proba(x_test)
-print "Test accuracy: ", sum(pd.DataFrame(y_test_rf).idxmax(axis=1).values == y_test) / float(len(y_test))
+# RANDOM FORREST
+rf_model = rf.fit(x_train, y_train)   # fit
+rf_model.score(x_train, y_train)      # Accuracy 99.8%
+# much better than logit_model maybe overfit though
 
-y_val_rf = rf.predict_proba(x_validate)
-print "Test accuracy: ", sum(pd.DataFrame(y_val_rf).idxmax(axis=1).values == y_validate) / float(len(y_validate))
+# predictions/probs on the test dataset
+predicted = pd.DataFrame(rf_model.predict(x_test))
+probs = pd.DataFrame(rf_model.predict_proba(x_test))
 
+# metrics
+print metrics.accuracy_score(y_test, predicted)     # 0.803
+print metrics.roc_auc_score(y_test, probs[1])       # 0.990297386108
+print metrics.confusion_matrix(y_test, predicted) 
+# [[2280    2]
+#  [  35  683]]
+print metrics.classification_report(y_test, predicted)
+#              precision    recall  f1-score   support
+#           0       0.98      1.00      0.99      2282
+#           1       1.00      0.95      0.97       718
+# avg / total       0.99      0.99      0.99      3000
 
-# two class jungle
+# evaluate the model using 10-fold cross-validation
+scores = cross_val_score(RandomForestClassifier(), x_test, y_test, scoring='accuracy', cv=10)
+print scores.mean() # 0.976325455468
 
-# two class neural net
+# TODO investigate overfitting/model with less vars/improve generalisation
+
+# SUPPORT VECTOR MACHINE
+svm_model = SVC(probability=True)			   # instantiate
+svm_model = svm_model.fit(x_train, y_train)    # fit
+svm_model.score(x_train, y_train)              # Accuracy 95%
+
+# predictions/probs on the test dataset
+predicted = pd.DataFrame(svm_model.predict(x_test))
+probs = pd.DataFrame(svm_model.predict_proba(x_test))
+
+# metrics
+print metrics.accuracy_score(y_test, predicted)     # 0.937666666667
+print metrics.roc_auc_score(y_test, probs[1])       # 0.967936667977
+print metrics.confusion_matrix(y_test, predicted) 
+# [[2181  101]
+#  [  86  632]]
+print metrics.classification_report(y_test, predicted)
+#              precision    recall  f1-score   support
+#           0       0.96      0.96      0.96      2282
+#           1       0.86      0.88      0.87       718
+# avg / total       0.94      0.94      0.94      3000
+
+# evaluate the model using 10-fold cross-validation
+scores = cross_val_score(RandomForestClassifier(), x_test, y_test, scoring='accuracy', cv=10)
+print scores.mean() # 0.977325455468
+
 # two class decision tree
 # two class bayes
-
+# two class neural net
 #### evaluate
+# overfit to particular period?
