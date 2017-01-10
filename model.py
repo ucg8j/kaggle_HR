@@ -3,14 +3,15 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-# import statsmodels.api as sm # logistic but... use 
 from random import sample
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.cross_validation import cross_val_score
 from sklearn import metrics
 from sklearn.svm import SVC
-
+from sklearn import tree
+from IPython.display import Image  
+from pydotplus import graph_from_dot_data
 
 #### set working dir and read data
 path = os.path.expanduser('~/Projects/kaggle_HR/')
@@ -232,11 +233,50 @@ print metrics.classification_report(y_test, predicted)
 # avg / total       0.94      0.94      0.94      3000
 
 # evaluate the model using 10-fold cross-validation
-scores = cross_val_score(RandomForestClassifier(), x_test, y_test, scoring='accuracy', cv=10)
-print scores.mean() # 0.977325455468
+scores = cross_val_score(SVC(probability=True), x_test, y_test, scoring='accuracy', cv=10)
+print scores.mean() # 0.924998514798
 
-# two class decision tree
+# DECISION TREE (pruned to depth of 5)
+# TODO optimise depth
+tree_model = tree.DecisionTreeClassifier(max_depth=2) # instantiate
+tree_model = tree_model.fit(x_train, y_train)    # fit
+tree_model.score(x_train, y_train)               # Accuracy 0.97577508612068009
+
+# predictions/probs on the test dataset
+predicted = pd.DataFrame(tree_model.predict(x_test))
+probs = pd.DataFrame(tree_model.predict_proba(x_test))
+
+# metrics
+print metrics.accuracy_score(y_test, predicted)     # 0.978333333333
+print metrics.roc_auc_score(y_test, probs[1])       # 0.976297791362
+print metrics.confusion_matrix(y_test, predicted) 
+# [[2269   13]
+#  [  52  666]]
+print metrics.classification_report(y_test, predicted)
+#              precision    recall  f1-score   support
+#           0       0.98      0.99      0.99      2282
+#           1       0.98      0.93      0.95       718
+# avg / total       0.98      0.98      0.98      3000
+
+# evaluate the model using 10-fold cross-validation
+scores = cross_val_score(DecisionTreeClassifier(), x_test, y_test, scoring='accuracy', cv=10)
+print scores.mean() # 0.960658722134
+
+# output decision plot
+dot_data = tree.export_graphviz(tree_model, out_file=None, 
+                     feature_names=x_test.columns.tolist(),
+                     class_names=['remain', 'left'],
+                     filled=True, rounded=True,  
+                     special_characters=True)  
+graph = graph_from_dot_data(dot_data)
+graph.write_png("decision_tree.png")
+# Image(grsacaph.create_png()) # TODO uncomment for notebook.py
+
+# KNN ?
+# gradient boost
 # two class bayes
 # two class neural net
+
 #### evaluate
 # overfit to particular period?
+# tree better than SVM considering interpretability in bus context and training time
