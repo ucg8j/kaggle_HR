@@ -18,6 +18,8 @@ path = os.path.expanduser('~/Projects/kaggle_HR/')
 os.chdir(path)
 df = pd.read_csv('HR_comma_sep.csv')
 
+np.random.seed(42)
+
 
 #### explore the data set
 col_names = df.columns.tolist()
@@ -40,23 +42,6 @@ df = df.join(one_hot_sales)
 # drop unnecessay columns
 df = df.drop(['salary', 'sales', '$_low', 'sales_IT'], axis=1)
 
-# TODO - dummy ALTERNATIVE
-# n.b. python has no native way of handling factors like R and sklearn's rf classifier doesn't
-# handle categorical vars. Therefore need to one hot encode OR convert to numeric representations.
-#Auto encodes any dataframe column of type category or object.
-# from sklearn.preprocessing import LabelEncoder
-# def dummyEncode(df):
-#         columnsToEncode = list(df.select_dtypes(include=['category','object']))
-#         le = LabelEncoder()
-#         for feature in columnsToEncode:
-#             try:
-#                 df[feature] = le.fit_transform(df[feature])
-#             except:
-#                 print('Error encoding '+feature)
-#         return df
-
-# df_test = dummyEncode(df)
-
 # TODO interaction terms
 # expand possible variables
 df['productivity'] = df.average_montly_hours / df.number_project
@@ -73,23 +58,24 @@ print '% people stayed = {}%'.format(round(float(len(df[df['left'] == 1])) / len
 df.apply(lambda x: sum(x.isnull()), axis=0)
 # no missing values
 
-# correlation heatmap
-correlation = df.corr()
-plt.figure(figsize=(10, 10))
-sns.heatmap(correlation, vmax=1, square=True, annot=True, cmap='cubehelix')
+# # correlation heatmap
+# correlation = df.corr()
+# plt.figure(figsize=(10, 10))
+# sns.heatmap(correlation, vmax=1, square=True, annot=True, cmap='cubehelix')
 
-# pairwise plots
-df_sampl = df.sample(frac=0.05)
-pplot = sns.pairplot(df_sampl, hue="left")
-pplot_v2 = sns.pairplot(df_sampl, diag_kind="kde")
+# # pairwise plots
+# df_sample = df.sample(frac=0.05)
+# pplot = sns.pairplot(df_sample, hue="left")
+# pplot_v2 = sns.pairplot(df_sample, diag_kind="kde")
 
 # TODO check for outliers
 
 #### split data into train, test and validate
 # 60% - train set, 20% - validation set, 20% - test set
-train, validate, test = np.split(df.sample(frac=1), [int(.6*len(df)), int(.8*len(df))])
+train, test, validate = np.split(df.sample(frac=1), [int(.6*len(df)), int(.8*len(df))])
+print train.shape, test.shape, validate.shape
 
-# separate target and predictors
+# Separate target and predictors
 y_train = train['left']
 x_train = train.drop(['left'], axis=1)
 y_validate = validate['left']
@@ -102,18 +88,14 @@ rf = RandomForestClassifier()
 rf.fit(x_train, y_train)
 print "Features sorted by their score:"
 print sorted(zip(map(lambda x: round(x, 4), rf.feature_importances_), x_train), reverse=True)
+#[(0.3329, 'satisfaction_level'), (0.1751, 'time_spend_company'), (0.1389, 'average_montly_hours'), (0.1285, 'number_project'), (0.1052, 'last_evaluation'), (0.0836, 'productivity'), (0.0066, 'Work_accident'), (0.0045, '$_medium'), (0.004, '$_high'), (0.0034, 'sales_technical'), (0.0031, 'sales_sales'), (0.0025, 'sales_support'), (0.0024, 'sales_RandD'), (0.0023, 'sales_hr'), (0.002, 'promotion_last_5years'), (0.0015, 'sales_accounting'), (0.0014, 'sales_marketing'), (0.0013, 'sales_management'), (0.0009, 'sales_product_mng')]
 
+# Assign feature importance and sort
 importances = rf.feature_importances_
 std = np.std([rf.feature_importances_ for tree in rf.estimators_], axis=0)
 indices = np.argsort(importances)[::-1]
-# [(0.245, 'satisfaction_level'), (0.1728, 'number_project'), (0.1655, 'time_spend_company'),
-# (0.1369, 'average_montly_hours'), (0.1244, 'productivity'), (0.1139, 'last_evaluation'),
-# (0.0111, 'Work_accident'), (0.0063, '$_high'), (0.0043, '$_medium'), (0.0037, 'sales_sales'),
-# (0.0035, 'sales_technical'), (0.0031, 'sales_support'), (0.0019, 'sales_management'),
-# (0.0018, 'sales_hr'), (0.0016, 'sales_RandD'), (0.0015, 'sales_marketing'),
-# (0.0012, 'sales_accounting'), (0.0008, 'promotion_last_5years'), (0.0007, 'sales_product_mng')]
 
-# plot variable importance
+# Plot variable importance
 plt.figure()
 plt.title("Feature importance")
 plt.bar(range(x_train.shape[1]), importances[indices], color="r", yerr=std[indices], align="center")
@@ -122,8 +104,6 @@ plt.bar(range(x_train.shape[1]), importances[indices], color="r", yerr=std[indic
 all_vars = df.columns.tolist()
 top_6_vars = ['satisfaction_level', 'number_project', 'time_spend_company', 
               'average_montly_hours', 'productivity', 'last_evaluation']
-top_5_vars = ['satisfaction_level', 'number_project', 'time_spend_company', 
-              'average_montly_hours', 'last_evaluation']
 
 
 #### model
@@ -134,31 +114,9 @@ logit_model.score(x_train, y_train)               # Accuracy 80%
 
 # what % of the test set leave?
 y_test.mean()
-# 0.23933333333333334 
-# you could obtain 76% accuracy by always predicting 'left = N' (i.e. remain in org). 
-# In that sense we are doing that well!
 
 # examine the coefficients
 pd.DataFrame(zip(X.columns, np.transpose(model.coef_)))
-#    satisfaction_level     [-3.93663051447] lower satisfaction associated with leaving
-#       last_evaluation     [0.689767457149] higher performance associated with leaving
-#        number_project     [0.110208280701] more projects (performance related) associated with leaving
-#  average_montly_hours  [-0.00408269509067]
-#    time_spend_company     [0.263577652969]
-#         Work_accident     [-1.56599235287]
-# promotion_last_5years     [-1.24075021228]
-#                $_high     [-1.89336653791]
-#              $_medium    [-0.523404690533]
-#           sales_RandD    [-0.497071456721]
-#      sales_accounting    [0.0938805031077]
-#              sales_hr     [0.331180487373]
-#      sales_management    [-0.510669271677]
-#       sales_marketing    [0.0420679846999]
-#     sales_product_mng    [0.0389480539297]
-#           sales_sales    [0.0978587842515]
-#         sales_support      [0.15181336107]
-#       sales_technical     [0.187623110255]
-#          productivity    [0.0276848033542]
 
 # predictions on the test dataset
 predicted = pd.DataFrame(logit_model.predict(x_test))
@@ -184,17 +142,20 @@ print metrics.classification_report(y_test, predicted)
 scores = cross_val_score(LogisticRegression(), x_test, y_test, scoring='accuracy', cv=10)
 print scores.mean()
 
-# RANDOM FORREST
-rf_model = rf.fit(x_train, y_train)   # fit
-rf_model.score(x_train, y_train)      # Accuracy 99.8%
-# much better than logit_model maybe overfit though
+## RANDOM FORREST
+# Instantiate
+rf = RandomForestClassifier()	   
+# Fit
+rf_model = rf.fit(x_train, y_train)
+# Accuracy 99.8%
+rf_model.score(x_train, y_train)
 
-# predictions/probs on the test dataset
+# Predictions/probs on the test dataset
 predicted = pd.DataFrame(rf_model.predict(x_test))
 probs = pd.DataFrame(rf_model.predict_proba(x_test))
 
 # metrics
-print metrics.accuracy_score(y_test, predicted)     # 0.803
+print metrics.accuracy_score(y_test, predicted)
 print metrics.roc_auc_score(y_test, probs[1])       # 0.990297386108
 print metrics.confusion_matrix(y_test, predicted) 
 # [[2280    2]
