@@ -20,7 +20,6 @@ df = pd.read_csv('HR_comma_sep.csv')
 
 np.random.seed(42)
 
-
 #### explore the data set
 col_names = df.columns.tolist()
 df.shape # (14999, 10)
@@ -43,20 +42,17 @@ df = df.join(one_hot_sales)
 df = df.drop(['salary', 'sales', '$_low', 'sales_IT'], axis=1)
 
 # TODO interaction terms
-# expand possible variables
-df['productivity'] = df.average_montly_hours / df.number_project
 
 # some basic qtys
 print '# people left = {}'.format(len(df[df['left'] == 1]))
 # people left = 3571
 print '# people stayed = {}'.format(len(df[df['left'] == 0]))
 # people stayed = 11428
-print '% people stayed = {}%'.format(round(float(len(df[df['left'] == 1])) / len(df) * 100), 3)
-# % people stayed = 24.0%
+print '% people left = {}%'.format(round(float(len(df[df['left'] == 1])) / len(df) * 100), 3)
+# % people left = 24.0%
 
-# check missing for values
+# check missing for values (none)
 df.apply(lambda x: sum(x.isnull()), axis=0)
-# no missing values
 
 # # correlation heatmap
 # correlation = df.corr()
@@ -78,10 +74,10 @@ print train.shape, test.shape, validate.shape
 # Separate target and predictors
 y_train = train['left']
 x_train = train.drop(['left'], axis=1)
-y_validate = validate['left']
-x_validate = validate.drop(['left'], axis=1)
 y_test = test['left']
 x_test = test.drop(['left'], axis=1)
+y_validate = validate['left']
+x_validate = validate.drop(['left'], axis=1)
 
 #### variable importance / selection
 rf = RandomForestClassifier()
@@ -100,20 +96,23 @@ plt.figure()
 plt.title("Feature importance")
 plt.bar(range(x_train.shape[1]), importances[indices], color="r", yerr=std[indices], align="center")
 
-# create variable lists
-all_vars = df.columns.tolist()
-top_6_vars = ['satisfaction_level', 'number_project', 'time_spend_company', 
-              'average_montly_hours', 'productivity', 'last_evaluation']
+# Create variable lists and drop
+all_vars = x_train.columns.tolist()
+top_5_vars = ['satisfaction_level', 'number_project', 'time_spend_company', 
+              'average_montly_hours', 'last_evaluation']
+bottom_vars = [cols for cols in all_vars if cols not in top_5_vars]
+
+# Drop less important variables leaving the top_5
+x_train    = x_train.drop(bottom_vars, axis=1)
+x_test     = x_test.drop(bottom_vars, axis=1)
+x_validate = x_validate.drop(bottom_vars, axis=1)
 
 
 #### model
 # LOGISTIC REGRESSION
 logit_model = LogisticRegression()                # instantiate
 logit_model = logit_model.fit(x_train, y_train)   # fit
-logit_model.score(x_train, y_train)               # Accuracy 80%
-
-# what % of the test set leave?
-y_test.mean()
+logit_model.score(x_train, y_train)               # Accuracy 0.768
 
 # examine the coefficients
 pd.DataFrame(zip(X.columns, np.transpose(model.coef_)))
@@ -142,12 +141,13 @@ print metrics.classification_report(y_test, predicted)
 scores = cross_val_score(LogisticRegression(), x_test, y_test, scoring='accuracy', cv=10)
 print scores.mean()
 
-## RANDOM FORREST
+## RANDOM FORREST (ALL Variables)
+
 # Instantiate
 rf = RandomForestClassifier()	   
 # Fit
 rf_model = rf.fit(x_train, y_train)
-# Accuracy 99.8%
+# Accuracy 99.84%
 rf_model.score(x_train, y_train)
 
 # Predictions/probs on the test dataset
@@ -171,6 +171,36 @@ scores = cross_val_score(RandomForestClassifier(), x_test, y_test, scoring='accu
 print scores.mean() # 0.976325455468
 
 # TODO investigate overfitting/model with less vars/improve generalisation
+####################################################################################################################################################################################################
+## RANDOM FORREST (top_2_vars )
+
+# Instantiate
+rf = RandomForestClassifier()
+# Fit
+rf_model_6vars = rf.fit(x_train[top_2_vars], y_train)
+# Accuracy 99.8%
+rf_model_6vars.score(x_train[top_2_vars], y_train)
+
+# Predictions/probs on the test dataset
+predicted = pd.DataFrame(rf_model_6vars.predict(x_test[top_2_vars]))
+probs = pd.DataFrame(rf_model_6vars.predict_proba(x_test[top_2_vars]))
+
+# metrics
+print metrics.accuracy_score(y_test, predicted)
+print metrics.roc_auc_score(y_test, probs[1])       # 0.990297386108
+print metrics.confusion_matrix(y_test, predicted) 
+# [[2280    2]
+#  [  35  683]]
+print metrics.classification_report(y_test, predicted)
+#              precision    recall  f1-score   support
+#           0       0.98      1.00      0.99      2282
+#           1       1.00      0.95      0.97       718
+# avg / total       0.99      0.99      0.99      3000
+
+# evaluate the model using 10-fold cross-validation
+scores = cross_val_score(RandomForestClassifier(), x_test, y_test, scoring='accuracy', cv=10)
+print scores.mean() # 0.976325455468
+####################################################################################################################################################################################################
 
 # SUPPORT VECTOR MACHINE
 svm_model = SVC(probability=True)			   # instantiate
@@ -234,10 +264,20 @@ graph.write_png("decision_tree.png")
 # Image(grsacaph.create_png()) # TODO uncomment for notebook.py
 
 # KNN ?
+tree_model = tree.DecisionTreeClassifier(max_depth=2) # instantiate
+tree_model = tree_model.fit(x_train, y_train)    # fit
 # gradient boost
 # two class bayes
 # two class neural net
 
 #### evaluate
+#Model comparison
+models = pd.DataFrame({
+    'Model'          : ['Logistic Regression', 'SVM', 'kNN', 'Decision Tree', 'Random Forest'],
+    'Training_Score' : [logis_score_train, svm_score_train, knn_score_train, dt_score_train, rfc_score_train],
+    'Testing_Score'  : [logis_score_test, svm_score_test, knn_score_test, dt_score_test, rfc_score_test]
+    })
+models.sort_values(by='Testing_Score', ascending=False)
+
 # overfit to particular period?
 # tree better than SVM considering interpretability in bus context and training time
