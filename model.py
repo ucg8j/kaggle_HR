@@ -5,11 +5,13 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from random import sample
 from sklearn.linear_model import LogisticRegression
+from sklearn import tree
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.svm import SVC
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.naive_bayes import BernoulliNB
 from sklearn.cross_validation import cross_val_score
 from sklearn import metrics
-from sklearn.svm import SVC
-from sklearn import tree
 from IPython.display import Image  
 from pydotplus import graph_from_dot_data
 
@@ -115,7 +117,7 @@ logit_model = logit_model.fit(x_train, y_train)   # fit
 logit_model.score(x_train, y_train)               # Accuracy 0.768
 
 # examine the coefficients
-pd.DataFrame(zip(X.columns, np.transpose(model.coef_)))
+pd.DataFrame(zip(x_train.columns, np.transpose(logit_model.coef_)))
 
 # predictions on the test dataset
 predicted = pd.DataFrame(logit_model.predict(x_test))
@@ -126,132 +128,45 @@ probs = pd.DataFrame(logit_model.predict_proba(x_test))
 print probs.head(n=15)
 # if the probability of an employee is >50% then prediction will be =1
 
-print metrics.accuracy_score(y_test, predicted)     # 0.803
-print metrics.roc_auc_score(y_test, probs[1])       # 0.822072462459
-print metrics.confusion_matrix(y_test, predicted) 
-# [[2123  159]
-#  [ 432  286]]
-print metrics.classification_report(y_test, predicted)
-#              precision    recall  f1-score   support
-#           0       0.83      0.93      0.88      2282
-#           1       0.64      0.40      0.49       718
-# avg / total       0.79      0.80      0.79      3000
+# Store metrics
+logit_accuracy = metrics.accuracy_score(y_test, predicted)     
+logit_roc_auc = metrics.roc_auc_score(y_test, probs[1])       
+logit_confus_matrix = metrics.confusion_matrix(y_test, predicted) 
+logit_classification_report = metrics.classification_report(y_test, predicted)
+logit_precision = metrics.precision_score(y_test, predicted, pos_label=1)
+logit_recall = metrics.recall_score(y_test, predicted, pos_label=1)
+logit_f1 = metrics.f1_score(y_test, predicted, pos_label=1)
 
 # evaluate the model using 10-fold cross-validation
-scores = cross_val_score(LogisticRegression(), x_test, y_test, scoring='accuracy', cv=10)
-print scores.mean()
+logit_cv_scores = cross_val_score(LogisticRegression(), x_test, y_test, scoring='precision', cv=10)
+logit_cv_mean = np.mean(logit_cv_scores)
 
-## RANDOM FORREST (ALL Variables)
-
-# Instantiate
-rf = RandomForestClassifier()	   
-# Fit
-rf_model = rf.fit(x_train, y_train)
-# Accuracy 99.84%
-rf_model.score(x_train, y_train)
-
-# Predictions/probs on the test dataset
-predicted = pd.DataFrame(rf_model.predict(x_test))
-probs = pd.DataFrame(rf_model.predict_proba(x_test))
-
-# metrics
-print metrics.accuracy_score(y_test, predicted)
-print metrics.roc_auc_score(y_test, probs[1])       # 0.990297386108
-print metrics.confusion_matrix(y_test, predicted) 
-# [[2280    2]
-#  [  35  683]]
-print metrics.classification_report(y_test, predicted)
-#              precision    recall  f1-score   support
-#           0       0.98      1.00      0.99      2282
-#           1       1.00      0.95      0.97       718
-# avg / total       0.99      0.99      0.99      3000
-
-# evaluate the model using 10-fold cross-validation
-scores = cross_val_score(RandomForestClassifier(), x_test, y_test, scoring='accuracy', cv=10)
-print scores.mean() # 0.976325455468
-
-# TODO investigate overfitting/model with less vars/improve generalisation
-####################################################################################################################################################################################################
-## RANDOM FORREST (top_2_vars )
-
-# Instantiate
-rf = RandomForestClassifier()
-# Fit
-rf_model_6vars = rf.fit(x_train[top_2_vars], y_train)
-# Accuracy 99.8%
-rf_model_6vars.score(x_train[top_2_vars], y_train)
-
-# Predictions/probs on the test dataset
-predicted = pd.DataFrame(rf_model_6vars.predict(x_test[top_2_vars]))
-probs = pd.DataFrame(rf_model_6vars.predict_proba(x_test[top_2_vars]))
-
-# metrics
-print metrics.accuracy_score(y_test, predicted)
-print metrics.roc_auc_score(y_test, probs[1])       # 0.990297386108
-print metrics.confusion_matrix(y_test, predicted) 
-# [[2280    2]
-#  [  35  683]]
-print metrics.classification_report(y_test, predicted)
-#              precision    recall  f1-score   support
-#           0       0.98      1.00      0.99      2282
-#           1       1.00      0.95      0.97       718
-# avg / total       0.99      0.99      0.99      3000
-
-# evaluate the model using 10-fold cross-validation
-scores = cross_val_score(RandomForestClassifier(), x_test, y_test, scoring='accuracy', cv=10)
-print scores.mean() # 0.976325455468
-####################################################################################################################################################################################################
-
-# SUPPORT VECTOR MACHINE
-svm_model = SVC(probability=True)			   # instantiate
-svm_model = svm_model.fit(x_train, y_train)    # fit
-svm_model.score(x_train, y_train)              # Accuracy 95%
-
-# predictions/probs on the test dataset
-predicted = pd.DataFrame(svm_model.predict(x_test))
-probs = pd.DataFrame(svm_model.predict_proba(x_test))
-
-# metrics
-print metrics.accuracy_score(y_test, predicted)     # 0.937666666667
-print metrics.roc_auc_score(y_test, probs[1])       # 0.967936667977
-print metrics.confusion_matrix(y_test, predicted) 
-# [[2181  101]
-#  [  86  632]]
-print metrics.classification_report(y_test, predicted)
-#              precision    recall  f1-score   support
-#           0       0.96      0.96      0.96      2282
-#           1       0.86      0.88      0.87       718
-# avg / total       0.94      0.94      0.94      3000
-
-# evaluate the model using 10-fold cross-validation
-scores = cross_val_score(SVC(probability=True), x_test, y_test, scoring='accuracy', cv=10)
-print scores.mean() # 0.924998514798
-
-# DECISION TREE (pruned to depth of 5)
+# DECISION TREE (pruned to depth of 3)
 # TODO optimise depth
-tree_model = tree.DecisionTreeClassifier(max_depth=2) # instantiate
-tree_model = tree_model.fit(x_train, y_train)    # fit
-tree_model.score(x_train, y_train)               # Accuracy 0.97577508612068009
+# Instantiate with a max depth of 3
+tree_model = tree.DecisionTreeClassifier(max_depth=3) 
+# Fit a decision tree
+tree_model = tree_model.fit(x_train, y_train)
+# Training accuracy
+tree_model.score(x_train, y_train)
 
-# predictions/probs on the test dataset
+# Predictions/probs on the test dataset
 predicted = pd.DataFrame(tree_model.predict(x_test))
 probs = pd.DataFrame(tree_model.predict_proba(x_test))
 
-# metrics
-print metrics.accuracy_score(y_test, predicted)     # 0.978333333333
-print metrics.roc_auc_score(y_test, probs[1])       # 0.976297791362
-print metrics.confusion_matrix(y_test, predicted) 
-# [[2269   13]
-#  [  52  666]]
-print metrics.classification_report(y_test, predicted)
-#              precision    recall  f1-score   support
-#           0       0.98      0.99      0.99      2282
-#           1       0.98      0.93      0.95       718
-# avg / total       0.98      0.98      0.98      3000
+# Store metrics
+tree_accuracy = metrics.accuracy_score(y_test, predicted)     
+tree_roc_auc = metrics.roc_auc_score(y_test, probs[1])       
+tree_confus_matrix = metrics.confusion_matrix(y_test, predicted) 
+tree_classification_report = metrics.classification_report(y_test, predicted)
+tree_precision = metrics.precision_score(y_test, predicted, pos_label=1)
+tree_recall = metrics.recall_score(y_test, predicted, pos_label=1)
+tree_f1 = metrics.f1_score(y_test, predicted, pos_label=1)
 
 # evaluate the model using 10-fold cross-validation
-scores = cross_val_score(DecisionTreeClassifier(), x_test, y_test, scoring='accuracy', cv=10)
-print scores.mean() # 0.960658722134
+tree_cv_scores = cross_val_score(tree.DecisionTreeClassifier(max_depth=3), 
+                                x_test, y_test, scoring='precision', cv=10)
+tree_cv_mean = np.mean(tree_cv_scores)
 
 # output decision plot
 dot_data = tree.export_graphviz(tree_model, out_file=None, 
@@ -260,24 +175,127 @@ dot_data = tree.export_graphviz(tree_model, out_file=None,
                      filled=True, rounded=True,  
                      special_characters=True)  
 graph = graph_from_dot_data(dot_data)
-graph.write_png("decision_tree.png")
-# Image(grsacaph.create_png()) # TODO uncomment for notebook.py
+graph.write_png("images/decision_tree.png")
 
-# KNN ?
-tree_model = tree.DecisionTreeClassifier(max_depth=2) # instantiate
-tree_model = tree_model.fit(x_train, y_train)    # fit
-# gradient boost
-# two class bayes
-# two class neural net
+
+## RANDOM FOREST
+# Instantiate
+rf = RandomForestClassifier()	   
+# Fit
+rf_model = rf.fit(x_train, y_train)
+# training accuracy 99.74%
+rf_model.score(x_train, y_train)
+
+# Predictions/probs on the test dataset
+predicted = pd.DataFrame(rf_model.predict(x_test))
+probs = pd.DataFrame(rf_model.predict_proba(x_test))
+
+# Store metrics
+rf_accuracy = metrics.accuracy_score(y_test, predicted)     
+rf_roc_auc = metrics.roc_auc_score(y_test, probs[1])       
+rf_confus_matrix = metrics.confusion_matrix(y_test, predicted) 
+rf_classification_report = metrics.classification_report(y_test, predicted)
+rf_precision = metrics.precision_score(y_test, predicted, pos_label=1)
+rf_recall = metrics.recall_score(y_test, predicted, pos_label=1)
+rf_f1 = metrics.f1_score(y_test, predicted, pos_label=1)
+
+# evaluate the model using 10-fold cross-validation
+rf_cv_scores = cross_val_score(RandomForestClassifier(), x_test, y_test, scoring='precision', cv=10)
+rf_cv_mean = np.mean(rf_cv_scores)
+
+
+# SUPPORT VECTOR MACHINE
+# Instantiate
+svm_model = SVC(probability=True)
+# Fit
+svm_model = svm_model.fit(x_train, y_train)
+# Accuracy
+svm_model.score(x_train, y_train)
+
+# predictions/probs on the test dataset
+predicted = pd.DataFrame(svm_model.predict(x_test))
+probs = pd.DataFrame(svm_model.predict_proba(x_test))
+
+# Store metrics
+svm_accuracy = metrics.accuracy_score(y_test, predicted)     
+svm_roc_auc = metrics.roc_auc_score(y_test, probs[1])       
+svm_confus_matrix = metrics.confusion_matrix(y_test, predicted) 
+svm_classification_report = metrics.classification_report(y_test, predicted)
+svm_precision = metrics.precision_score(y_test, predicted, pos_label=1)
+svm_recall = metrics.recall_score(y_test, predicted, pos_label=1)
+svm_f1 = metrics.f1_score(y_test, predicted, pos_label=1)
+
+# evaluate the model using 10-fold cross-validation
+svm_cv_scores = cross_val_score(SVC(probability=True), x_test, y_test, scoring='precision', cv=10)
+svm_cv_mean = np.mean(svm_cv_scores)
+
+
+# KNN
+# instantiate learning model (k = 3)
+knn_model = KNeighborsClassifier(n_neighbors=3)
+# fit the model
+knn_model.fit(x_train, y_train)
+# Accuracy
+knn_model.score(x_train, y_train)
+
+# predictions/probs on the test dataset
+predicted = pd.DataFrame(knn_model.predict(x_test))
+probs = pd.DataFrame(knn_model.predict_proba(x_test))
+
+# Store metrics
+knn_accuracy = metrics.accuracy_score(y_test, predicted)     
+knn_roc_auc = metrics.roc_auc_score(y_test, probs[1])       
+knn_confus_matrix = metrics.confusion_matrix(y_test, predicted) 
+knn_classification_report = metrics.classification_report(y_test, predicted)
+knn_precision = metrics.precision_score(y_test, predicted, pos_label=1)
+knn_recall = metrics.recall_score(y_test, predicted, pos_label=1)
+knn_f1 = metrics.f1_score(y_test, predicted, pos_label=1)
+
+# evaluate the model using 10-fold cross-validation
+knn_cv_scores = cross_val_score(KNeighborsClassifier(n_neighbors=3), x_test, y_test, scoring='precision', cv=10)
+knn_cv_mean = np.mean(knn_cv_scores)
+
+
+# TWO CLASS BAYES
+
+# instantiate
+bayes_model = GaussianNB()
+# fit the model
+bayes_model.fit(x_train, y_train)
+# Accuracy
+bayes_model.score(x_train, y_train)
+
+# predictions/probs on the test dataset
+predicted = pd.DataFrame(bayes_model.predict(x_test))
+probs = pd.DataFrame(bayes_model.predict_proba(x_test))
+
+# Store metrics
+bayes_accuracy = metrics.accuracy_score(y_test, predicted)     
+bayes_roc_auc = metrics.roc_auc_score(y_test, probs[1])       
+bayes_confus_matrix = metrics.confusion_matrix(y_test, predicted) 
+bayes_classification_report = metrics.classification_report(y_test, predicted)
+bayes_precision = metrics.precision_score(y_test, predicted, pos_label=1)
+bayes_recall = metrics.recall_score(y_test, predicted, pos_label=1)
+bayes_f1 = metrics.f1_score(y_test, predicted, pos_label=1)
+
+# evaluate the model using 10-fold cross-validation
+bayes_cv_scores = cross_val_score(KNeighborsClassifier(n_neighbors=3), x_test, y_test, scoring='precision', cv=10)
+bayes_cv_mean = np.mean(bayes_cv_scores)
+
 
 #### evaluate
-#Model comparison
+# Model comparison
 models = pd.DataFrame({
-    'Model'          : ['Logistic Regression', 'SVM', 'kNN', 'Decision Tree', 'Random Forest'],
-    'Training_Score' : [logis_score_train, svm_score_train, knn_score_train, dt_score_train, rfc_score_train],
-    'Testing_Score'  : [logis_score_test, svm_score_test, knn_score_test, dt_score_test, rfc_score_test]
+    'Model'    : ['Logistic Regression', 'Decision Tree', 'Random Forest', 'SVM', 'kNN', 'Bayes'],
+    'Accuracy' : [logit_accuracy, tree_accuracy, rf_accuracy, svm_accuracy, knn_accuracy, bayes_accuracy],
+    'Precision': [logit_precision, tree_precision, rf_precision, svm_precision, knn_precision, bayes_precision],
+    'recall'   : [logit_recall, tree_recall, rf_recall, svm_recall, knn_recall, bayes_recall],
+    'F1'       : [logit_f1, tree_f1, rf_f1, svm_f1, knn_f1, bayes_f1],
+    'cv_precision' : [logit_cv_mean, tree_cv_mean, rf_cv_mean, svm_cv_mean, knn_cv_mean, bayes_cv_mean]
     })
-models.sort_values(by='Testing_Score', ascending=False)
+models.sort_values(by='Precision', ascending=False)
 
-# overfit to particular period?
-# tree better than SVM considering interpretability in bus context and training time
+#### Save model
+import cPickle
+with open('churn_classifier.pkl', 'wb') as fid:
+    cPickle.dump(rf_model, fid)
